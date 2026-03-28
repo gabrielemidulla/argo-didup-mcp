@@ -1,10 +1,9 @@
 {
   "mcpServers": {
     "argo-didup": {
-      "url": "${env:ARGO_MCP_URL}",
-      "headers": {
-        "Authorization": "Bearer ${env:ARGO_MCP_TOKEN}"
-      }
+      "command": "bun",
+      "args": ["index.ts", "mcp"],
+      "cwd": "${workspaceFolder}"
     }
   }
 }

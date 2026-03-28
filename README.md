@@ -29,19 +29,31 @@ bun index.ts mcp
 
 All’**avvio** del server MCP (`mcp` o `serve`) viene eseguito il **login Argo** una volta (variabili `CODICE_SCUOLA`, `USERNAME`, `PASSWORD`); il browser resta aperto. A **ogni** chiamata a **`voti-giornalieri`** si ricarica `index.jsf` e poi si naviga alla sezione voti.
 
-Aggiungi a `.cursor/mcp.json` (stdio locale):
+Il file `.cursor/mcp.json` in repo usa **stdio**: Cursor avvia `bun index.ts mcp` con `cwd` sulla root del workspace. **Bun carica automaticamente `.env`** da quella directory, quindi `CODICE_SCUOLA`, `USERNAME` e `PASSWORD` funzionano senza esportarle nel terminale.
+
+### Cursor, `${env:...}` e file `.env`
+
+In `mcp.json`, valori come `"${env:AUTH_TOKEN}"` sono risolti solo dalle **variabili d’ambiente del processo che ha avviato Cursor** (Dock, Spotlight, ecc.). **Non** viene letto il `.env` del progetto. Per HTTP remoto da Cursor devi quindi, ad esempio:
+
+- esportare le variabili nello shell e lanciare Cursor da quel terminale (`cursor .`), oppure
+- definirle nel profilo shell (`~/.zshrc`) se accetti di tenerle lì in sviluppo.
+
+Esempio configurazione **solo HTTP** (VPS o `bun index.ts serve` locale), da unire con env esportate come sopra:
 
 ```json
 {
   "mcpServers": {
     "argo-didup": {
-      "command": "bun",
-      "args": ["index.ts", "mcp"],
-      "cwd": "${workspaceFolder}"
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:AUTH_TOKEN}"
+      }
     }
   }
 }
 ```
+
+Se `${env:AUTH_TOKEN}` è vuoto, le richieste falliscono (spesso 401/404 lato client MCP). Preferisci **stdio** in locale per evitare token nell’ambiente di Cursor.
 
 ## MCP Streamable HTTP (VPS)
 
