@@ -1,87 +1,22 @@
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Page, Browser, Cookie } from "puppeteer";
+import type { Page, Browser } from "puppeteer";
 import type { ArgoCredentials } from "./types.ts";
 
-puppeteer.use(StealthPlugin());
+export const BASE_URL = "https://www.portaleargo.it/argoweb/famiglia/";
+/** Home portale dopo login: ogni tool call riparte da qui. */
+export const PORTAL_INDEX_JSF = BASE_URL + "index.jsf";
 
-const BASE_URL = "https://www.portaleargo.it/argoweb/famiglia/";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
-
-const KEYCHAIN_SERVICE = "argo-didup-mcp";
-const KEYCHAIN_ACCOUNT = "session-cookies";
-
-async function keychainSet(data: string): Promise<boolean> {
-  // Delete existing entry first (ignore errors if it doesn't exist)
-  const del = Bun.spawn(
-    ["security", "delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT],
-    { stderr: "pipe" },
-  );
-  await del.exited;
-
-  const proc = Bun.spawn(
-    [
-      "security",
-      "add-generic-password",
-      "-s", KEYCHAIN_SERVICE,
-      "-a", KEYCHAIN_ACCOUNT,
-      "-w", data,
-      "-U",
-    ],
-    { stderr: "pipe" },
-  );
-  return (await proc.exited) === 0;
-}
-
-async function keychainGet(): Promise<string | null> {
-  const proc = Bun.spawn(
-    ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w"],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  const code = await proc.exited;
-  if (code !== 0) return null;
-  return (await new Response(proc.stdout).text()).trim();
-}
-
-async function loadCookies(): Promise<Cookie[] | null> {
-  try {
-    const data = await keychainGet();
-    if (!data) return null;
-    return JSON.parse(data);
-  } catch {
-    return null;
-  }
-}
-
-async function saveCookies(page: Page): Promise<void> {
-  const cdp = await page.createCDPSession();
-  const { cookies } = await cdp.send("Network.getAllCookies");
-  await cdp.detach();
-
-  const weekFromNow = Date.now() / 1000 + 7 * 24 * 60 * 60;
-  const persistable = cookies.map(({ session: _s, ...c }: any) => ({
-    ...c,
-    expires: c.expires === -1 || c.expires === 0 ? weekFromNow : c.expires,
-  }));
-
-  const ok = await keychainSet(JSON.stringify(persistable));
-  console.error(
-    ok
-      ? `[session] ${persistable.length} cookies saved to Keychain`
-      : `[session] failed to save cookies to Keychain`,
-  );
-}
 
 async function injectBackbasePatch(page: Page) {
   await page.evaluateOnNewDocument(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => false });
 
-    window.alert = (msg?: any) => {
+    window.alert = (msg?: unknown) => {
       console.warn("[suppressed alert]", msg);
     };
 
-    let _bbStore: any;
+    let _bbStore: unknown;
     Object.defineProperty(window, "bb", {
       configurable: true,
       enumerable: true,
@@ -90,10 +25,10 @@ async function injectBackbasePatch(page: Page) {
       },
       set(val) {
         if (val && typeof val === "object") {
-          val._G_ = true;
-          val.c9_ = "webkit";
-          val._U_ = 537.36;
-          val.customFallback = function () {};
+          (val as Record<string, unknown>)._G_ = true;
+          (val as Record<string, unknown>).c9_ = "webkit";
+          (val as Record<string, unknown>)._U_ = 537.36;
+          (val as Record<string, unknown>).customFallback = function () {};
         }
         _bbStore = val;
         Object.defineProperty(window, "bb", {
@@ -111,31 +46,15 @@ async function injectBackbasePatch(page: Page) {
   });
 }
 
-export async function createBrowser(): Promise<Browser> {
-  return puppeteer.launch({
-    headless: true,
-    defaultViewport: { width: 1280, height: 900 },
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-blink-features=AutomationControlled",
-    ],
-  });
+export async function preparePage(browser: Browser): Promise<Page> {
+  const p = await browser.newPage();
+  await p.setUserAgent(USER_AGENT);
+  p.setDefaultNavigationTimeout(120_000);
+  p.setDefaultTimeout(120_000);
+  await injectBackbasePatch(p);
+  return p;
 }
 
-async function preparePage(browser: Browser): Promise<Page> {
-  const page = await browser.newPage();
-  await page.setUserAgent(USER_AGENT);
-  page.setDefaultNavigationTimeout(120_000);
-  page.setDefaultTimeout(120_000);
-  await injectBackbasePatch(page);
-  return page;
-}
-
-/**
- * SSO form login — much faster than Backbase portal login.
- * Submits credentials via the lightweight HTML form at /auth/sso/login/.
- */
 async function loginViaSsoForm(
   page: Page,
   credentials: ArgoCredentials,
@@ -152,7 +71,6 @@ async function loginViaSsoForm(
   await page.type('[name="username"]', credentials.username, { delay: 10 });
   await page.type('[name="password"]', credentials.password, { delay: 10 });
 
-  // Set "Ricordami" hidden input to enable SSO
   await page.evaluate(() => {
     const el = document.querySelector<HTMLInputElement>('[name="remember_me"]');
     if (el) el.value = "1";
@@ -160,7 +78,6 @@ async function loginViaSsoForm(
 
   await page.click("#accediBtn");
 
-  // Wait for the full redirect chain: SSO → OAuth → callback → portal
   try {
     await page.waitForSelector(".btl-panel", { visible: true, timeout: 120_000 });
   } catch {
@@ -176,66 +93,116 @@ export async function login(
   browser: Browser,
   credentials: ArgoCredentials,
 ): Promise<Page> {
-  // 1) Try restoring session from cookies (fast, but unlikely to work
-  //    because Backbase invalidates server sessions on disconnect)
-  const cookies = await loadCookies();
-  if (cookies?.length) {
-    const page = await preparePage(browser);
-    const cdp = await page.createCDPSession();
-    for (const c of cookies) {
-      await cdp.send("Network.setCookie", c);
-    }
-    await cdp.detach();
+  const newPage = await preparePage(browser);
+  await newPage.goto(BASE_URL, { waitUntil: "networkidle2" });
 
-    await page.goto(BASE_URL + "index.jsf", { waitUntil: "networkidle2" });
-
-    // If we landed on the SSO login form, try fast form login
-    if (page.url().includes("login_challenge")) {
-      if (await loginViaSsoForm(page, credentials)) {
-        await saveCookies(page);
-        return page;
-      }
-      await page.close();
-    } else {
-      try {
-        await page.waitForSelector(".btl-panel", { visible: true, timeout: 10_000 });
-        console.error("[session] restored from cookies");
-        return page;
-      } catch {
-        await page.close();
-      }
+  if (newPage.url().includes("login_challenge")) {
+    if (await loginViaSsoForm(newPage, credentials)) {
+      return newPage;
     }
+    await newPage.close();
+    throw new Error("Login Argo fallito (SSO).");
   }
 
-  // 2) Full Backbase login (fallback)
   console.error("[session] full Backbase login");
-  const page = await preparePage(browser);
-  await page.goto(BASE_URL, { waitUntil: "networkidle2" });
 
-  await page.waitForSelector("#codiceScuola", { visible: true });
-  await page.type("#codiceScuola", credentials.codiceScuola, { delay: 20 });
-  await page.type("#username", credentials.username, { delay: 20 });
-  await page.type("#password", credentials.password, { delay: 20 });
+  await newPage.waitForSelector("#codiceScuola", { visible: true });
+  await newPage.type("#codiceScuola", credentials.codiceScuola, { delay: 20 });
+  await newPage.type("#username", credentials.username, { delay: 20 });
+  await newPage.type("#password", credentials.password, { delay: 20 });
   try {
-    await page.waitForSelector("#shared_remember_me", { visible: true, timeout: 3_000 });
-    await page.evaluate(() => {
+    await newPage.waitForSelector("#shared_remember_me", { visible: true, timeout: 3_000 });
+    await newPage.evaluate(() => {
       const cb = document.querySelector("#shared_remember_me") as HTMLInputElement;
       if (cb && !cb.checked) cb.click();
     });
-    await page.waitForSelector(".modal-footer > button", { visible: true, timeout: 5_000 });
-    await page.click(".modal-footer > button");
+    await newPage.waitForSelector(".modal-footer > button", { visible: true, timeout: 5_000 });
+    await newPage.click(".modal-footer > button");
     await new Promise((r) => setTimeout(r, 500));
   } catch {}
 
-  await page.waitForSelector("#accediBtn", { visible: true });
-  await page.click("#accediBtn");
+  await newPage.waitForSelector("#accediBtn", { visible: true });
+  await newPage.click("#accediBtn");
 
-  await page.waitForSelector(".btl-panel", {
+  await newPage.waitForSelector(".btl-panel", {
     visible: true,
     timeout: 120_000,
   });
   await new Promise((r) => setTimeout(r, 1500));
 
-  await saveCookies(page);
-  return page;
+  return newPage;
+}
+
+export function getArgoCredentialsFromEnv(): ArgoCredentials | null {
+  const codiceScuola = Bun.env["CODICE_SCUOLA"];
+  const username = Bun.env["USERNAME"];
+  const password = Bun.env["PASSWORD"];
+  if (!codiceScuola?.trim() || !username?.trim() || !password?.trim()) {
+    return null;
+  }
+  return { codiceScuola, username, password };
+}
+
+/**
+ * Assicura che la pagina sia sulla HOME del portale Argo (griglia pulsanti).
+ * Cerca `#bacheca-famglia`; se non c'è, clicca il link Home nella SPA
+ * per tornare alla griglia senza triggerare il redirect SSO.
+ */
+export async function openPortalIndex(page: Page): Promise<void> {
+  const onHome = await page
+    .evaluate(
+      () =>
+        !!document.querySelector("#bacheca-famglia") ||
+        !!document.querySelector('[id*="bacheca"]'),
+    )
+    .catch(() => false);
+
+  if (onHome) return;
+
+  console.error("[openPortalIndex] not on home, navigating back");
+
+  const clicked = await page.evaluate(() => {
+    const home = document.querySelector<HTMLElement>(
+      '[id="menu-home"], a[href*="index.jsf"], .btl-tree-leaf',
+    );
+    if (home) {
+      home.click();
+      return true;
+    }
+    return false;
+  });
+
+  if (clicked) {
+    await page
+      .waitForSelector("#bacheca-famglia", { timeout: 10_000 })
+      .catch(() => {});
+    const nowHome = await page
+      .evaluate(() => !!document.querySelector("#bacheca-famglia"))
+      .catch(() => false);
+    if (nowHome) {
+      await new Promise((r) => setTimeout(r, 500));
+      return;
+    }
+  }
+
+  console.error("[openPortalIndex] SPA nav failed, using goto");
+  await page.goto(BASE_URL, { waitUntil: "networkidle2" });
+
+  if (page.url().includes("login_challenge")) {
+    console.error("[openPortalIndex] SSO redirect, re-authenticating");
+    const creds = getArgoCredentialsFromEnv();
+    if (!creds) {
+      throw new Error(
+        "Sessione Argo scaduta e credenziali non disponibili per il re-login.",
+      );
+    }
+    const ok = await loginViaSsoForm(page, creds);
+    if (!ok) {
+      throw new Error("Sessione Argo scaduta e re-login SSO fallito.");
+    }
+    return;
+  }
+
+  await page.waitForSelector(".btl-panel", { visible: true, timeout: 30_000 });
+  await new Promise((r) => setTimeout(r, 500));
 }

@@ -17,3 +17,15 @@ export type ArgoCredentials = {
   username: string;
   password: string;
 };
+
+export type BachecaFile = {
+  name: string;
+  url: string;
+};
+
+export type BachecaEntry = {
+  date: string;
+  subject: string;
+  message: string;
+  files: BachecaFile[];
+};

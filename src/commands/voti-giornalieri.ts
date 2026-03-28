@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-import type { SubjectGrades } from "../types.ts";
+import type { GradeType, SubjectGrades } from "../types.ts";
 
 const SEL = {
   menuVotiGiornalieri: '[id="menu-servizialunno:voti-giornalieri-famiglia"]',
@@ -19,38 +19,25 @@ export async function votiGiornalieri(page: Page): Promise<SubjectGrades[]> {
   });
   await new Promise((r) => setTimeout(r, 1000));
 
-  return page.evaluate(() => {
-    function parseGrade(raw: string): { type: string | null; grade: string } {
+  const grades = await page.evaluate(() => {
+    function parseGrade(raw: string): { type: GradeType | null; grade: string } {
       const lower = raw.toLowerCase();
-      let type: string | null = null;
+      let type: GradeType | null = null;
       if (lower.includes("scritto")) type = "scritto";
       else if (lower.includes("orale")) type = "orale";
       else if (lower.includes("pratico")) type = "pratico";
 
       const numMatch = raw.match(/\((\d+(?:[.,]\d+)?)\)/);
-      const grade = numMatch ? numMatch[1].replace(",", ".") : raw;
+      const grade = numMatch?.[1] ? numMatch[1].replace(",", ".") : raw;
       return { type, grade };
     }
 
-    const out: {
-      subject: string;
-      rows: {
-        date: string;
-        type: string | null;
-        grade: string;
-        note: string;
-      }[];
-    }[] = [];
+    const out: SubjectGrades[] = [];
 
     document.querySelectorAll(".fieldset-anagrafe").forEach((fs) => {
       const legend = fs.querySelector("legend") as HTMLLegendElement | null;
       const subject = legend?.innerText?.trim() ?? "";
-      const rows: {
-        date: string;
-        type: string | null;
-        grade: string;
-        note: string;
-      }[] = [];
+      const rows: SubjectGrades["rows"] = [];
 
       fs.querySelectorAll("table tr").forEach((tr) => {
         const tds = tr.querySelectorAll("td");
@@ -73,4 +60,6 @@ export async function votiGiornalieri(page: Page): Promise<SubjectGrades[]> {
 
     return out;
   });
+
+  return grades;
 }

@@ -1,6 +1,7 @@
 import type { ArgoCredentials } from "./types.ts";
-import { createBrowser, login } from "./browser.ts";
+import { getArgoCredentialsFromEnv, login, openPortalIndex } from "./browser.ts";
 import { votiGiornalieri } from "./commands/voti-giornalieri.ts";
+import { getBrowser, shutdownSession } from "./session.ts";
 
 const COMMANDS = {
   "voti-giornalieri": {
@@ -12,18 +13,14 @@ const COMMANDS = {
 type CommandName = keyof typeof COMMANDS;
 
 function getCredentials(): ArgoCredentials {
-  const codiceScuola = Bun.env["CODICE_SCUOLA"];
-  const username = Bun.env["USERNAME"];
-  const password = Bun.env["PASSWORD"];
-
-  if (!codiceScuola || !username || !password) {
+  const creds = getArgoCredentialsFromEnv();
+  if (!creds) {
     console.error(
       "Variabili d'ambiente mancanti: CODICE_SCUOLA, USERNAME, PASSWORD",
     );
     process.exit(1);
   }
-
-  return { codiceScuola, username, password };
+  return creds;
 }
 
 function printUsage(): never {
@@ -45,12 +42,13 @@ export async function run(args: string[]) {
   const credentials = getCredentials();
   const command = COMMANDS[commandName];
 
-  const browser = await createBrowser();
   try {
+    const browser = await getBrowser();
     const page = await login(browser, credentials);
+    await openPortalIndex(page);
     const result = await command.run(page);
     console.log(JSON.stringify(result, null, 2));
   } finally {
-    await browser.close();
+    await shutdownSession();
   }
 }
