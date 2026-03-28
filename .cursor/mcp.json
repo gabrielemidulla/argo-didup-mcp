@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "argo-didup": {
+      "command": "bun",
+      "args": ["index.ts", "mcp"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
