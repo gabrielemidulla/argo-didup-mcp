@@ -8,16 +8,32 @@ const SEL = {
 } as const;
 
 const MONTH_MAP: Record<string, string> = {
-  Gen: "01", Feb: "02", Mar: "03", Apr: "04",
-  Mag: "05", Giu: "06", Lug: "07", Ago: "08",
-  Set: "09", Ott: "10", Nov: "11", Dic: "12",
+  Gen: "01",
+  Feb: "02",
+  Mar: "03",
+  Apr: "04",
+  Mag: "05",
+  Giu: "06",
+  Lug: "07",
+  Ago: "08",
+  Set: "09",
+  Ott: "10",
+  Nov: "11",
+  Dic: "12",
 };
 
 export interface BachecaOptions {
-  /** Quante circolari restituire (default 5). */
+  /** Quante circolari restituire (default 5 senza ricerca, 10 con `cerca`). */
   limit?: number;
   /** Filtra per mese, formato "MM/YYYY" (es. "02/2026"). */
   mese?: string;
+  /**
+   * Ricerca tipo motore di ricerca: parole separate da spazio (tutte devono comparire,
+   * ordine libero). Confronto case-insensitive (locale italiano) sul testo visibile della
+   * circolare (intero fieldset). Non servono caratteri jolly tipo SQL LIKE.
+   * Se omesso, si prendono le prime circolari in ordine di bacheca.
+   */
+  cerca?: string;
 }
 
 type RawEntry = {
@@ -26,19 +42,48 @@ type RawEntry = {
   subject: string;
   message: string;
   fileNames: string[];
+  /** Titolo spesso nel <legend> del fieldset, non nella riga "Oggetto". */
+  legend: string;
+  /** Testo visibile dell'intero fieldset (ricerca su tutto il blocco HTML della circolare). */
+  fullText: string;
 };
 
-/**
- * Apre la bacheca, scrapa le circolari, filtra per mese se specificato,
- * e per ogni allegato ottiene l'URL firmato CloudFront.
- */
-export async function bacheca(
-  page: Page,
-  opts: BachecaOptions = {},
-): Promise<BachecaEntry[]> {
-  const limit = opts.limit ?? 5;
-  const meseFilter = opts.mese?.trim() || null;
+const SEARCH_LOCALE = "it-IT";
 
+/** Token della query (parole); tutte devono essere sottostringhe dell'haystack. */
+export function cercaTokens(query: string): string[] {
+  return query
+    .trim()
+    .toLocaleLowerCase(SEARCH_LOCALE)
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+}
+
+export function haystackMatchesCerca(
+  haystackLower: string,
+  query: string,
+): boolean {
+  const tokens = cercaTokens(query);
+  if (tokens.length === 0) return true;
+  return tokens.every((t) => haystackLower.includes(t));
+}
+
+function rawHaystack(e: RawEntry): string {
+  const ft = e.fullText.trim();
+  if (ft.length > 0) return ft;
+  return [e.legend, e.subject, e.message, ...e.fileNames]
+    .filter((s) => s.trim().length > 0)
+    .join("\n");
+}
+
+function haystackForSearch(e: RawEntry): string {
+  return rawHaystack(e).toLocaleLowerCase(SEARCH_LOCALE);
+}
+
+/**
+ * Apre la bacheca nel portale e restituisce tutte le circolari grezze dalla pagina.
+ */
+async function openBachecaAndScrape(page: Page): Promise<RawEntry[]> {
   await page.waitForSelector(SEL.bachecaButton, { timeout: 15_000 });
   await page.evaluate((sel) => {
     const el = document.querySelector(sel) as HTMLElement | null;
@@ -51,7 +96,7 @@ export async function bacheca(
   await page.waitForSelector("fieldset", { visible: true, timeout: 60_000 });
   await new Promise((r) => setTimeout(r, 1500));
 
-  const allEntries: RawEntry[] = await page.evaluate(
+  return page.evaluate(
     (monthMap) => {
       const fieldsets = document.querySelectorAll("fieldset");
 
@@ -75,6 +120,7 @@ export async function bacheca(
         let subject = "";
         let message = "";
         const fileNames: string[] = [];
+        const legend = fs.querySelector("legend")?.textContent?.trim() ?? "";
 
         const outerTable = fs.querySelector("td:not([rowspan]) > table");
         if (!outerTable) continue;
@@ -99,7 +145,19 @@ export async function bacheca(
         }
 
         if (subject || message || fileNames.length > 0) {
-          out.push({ domIndex: out.length + 1, date: dateStr, subject, message, fileNames });
+          const fullText = (fs as HTMLElement).innerText
+            ?.replace(/\r\n/g, "\n")
+            .trim() ?? "";
+
+          out.push({
+            domIndex: out.length + 1,
+            date: dateStr,
+            subject,
+            message,
+            fileNames,
+            legend,
+            fullText,
+          });
         }
       }
 
@@ -107,18 +165,12 @@ export async function bacheca(
     },
     MONTH_MAP,
   );
+}
 
-  let filtered = allEntries;
-  if (meseFilter) {
-    const [mm, yyyy] = meseFilter.split("/");
-    if (mm && yyyy) {
-      const suffix = `/${mm}/${yyyy}`;
-      filtered = allEntries.filter((e) => e.date.endsWith(suffix));
-    }
-  }
-
-  const selected = filtered.slice(0, limit);
-
+async function entriesToBachecaWithUrls(
+  page: Page,
+  selected: RawEntry[],
+): Promise<BachecaEntry[]> {
   const result: BachecaEntry[] = [];
 
   for (const raw of selected) {
@@ -138,6 +190,44 @@ export async function bacheca(
       files,
     });
   }
+
+  return result;
+}
+
+/**
+ * Apre la bacheca, scrapa le circolari, opzionalmente filtra per mese e/o testo `cerca`,
+ * e per ogni allegato ottiene l'URL firmato CloudFront. Con `cerca` la ricerca vale su
+ * tutte le circolari lette dal DOM; `limit` limita solo quante circolari si elaborano (PDF).
+ */
+export async function bacheca(
+  page: Page,
+  opts: BachecaOptions = {},
+): Promise<BachecaEntry[]> {
+  const cercaRaw = opts.cerca?.trim() ?? "";
+  const hasSearch = cercaRaw.length > 0;
+  const limit = opts.limit ?? (hasSearch ? 10 : 5);
+  const meseFilter = opts.mese?.trim() || null;
+
+  const allEntries = await openBachecaAndScrape(page);
+
+  let pool: RawEntry[] = allEntries;
+
+  if (meseFilter) {
+    const [mm, yyyy] = meseFilter.split("/");
+    if (mm && yyyy) {
+      const suffix = `/${mm}/${yyyy}`;
+      pool = pool.filter((e) => e.date.endsWith(suffix));
+    }
+  }
+
+  if (hasSearch) {
+    pool = pool.filter((e) =>
+      haystackMatchesCerca(haystackForSearch(e), cercaRaw),
+    );
+  }
+
+  const selected = pool.slice(0, limit);
+  const result = await entriesToBachecaWithUrls(page, selected);
 
   await closeBachecaModal(page);
 
@@ -192,7 +282,9 @@ async function fetchSignedPdfUrl(
     delta,
   );
   if (!result.url) {
-    console.error(`[bacheca] empty URL for riga|${circIdx}_${fileIdx}, response: ${result.responsePreview}`);
+    console.error(
+      `[bacheca] empty URL for riga|${circIdx}_${fileIdx}, response: ${result.responsePreview}`,
+    );
   }
   return result.url;
 }

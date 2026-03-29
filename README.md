@@ -80,6 +80,16 @@ docker run -e AUTH_TOKEN=... -e CODICE_SCUOLA=... -e USERNAME=... -e PASSWORD=..
 
 Su container si usa Chromium di sistema (`PUPPETEER_EXECUTABLE_PATH` già impostato nel Dockerfile).
 
+## Bot Telegram (esempio)
+
+Esempio in [`examples/telegram.ts`](examples/telegram.ts): **grammY** + **LangChain** (`createReactAgent`) + **Gemini**, con tool MCP via HTTP verso il server locale. Solo il `TELEGRAM_CHAT_ID` configurato riceve risposte. Il **runner** grammY evita che `getUpdates` resti bloccato durante chiamate lunghe al modello/MCP.
+
+1. In un terminale: `bun index.ts serve` (stesso `AUTH_TOKEN` del `.env`).
+2. In un altro: `bun index.ts telegram`.
+3. Scrivi al bot dal chat consentito.
+
+Variabili: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`, oltre a `AUTH_TOKEN` e credenziali Argo. Opzionale: `MCP_URL` (default `http://localhost:<PORT>/mcp`).
+
 ## Variabili d’ambiente
 
 | Variabile | Uso |
@@ -89,4 +99,7 @@ Su container si usa Chromium di sistema (`PUPPETEER_EXECUTABLE_PATH` già impost
 | `MCP_IDLE_TIMEOUT` | Secondi prima che Bun chiuda connessioni idle; default `0` (disabilitato, necessario per Streamable HTTP / SSE) |
 | `PUPPETEER_EXECUTABLE_PATH` | Chromium custom (es. Linux server) |
 | `CODICE_SCUOLA`, `USERNAME`, `PASSWORD` | Login Argo (MCP e CLI) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Bot di esempio (`bun index.ts telegram`) |
+| `GOOGLE_API_KEY` | Gemini per il bot di esempio |
+| `MCP_URL` | Opzionale; URL MCP HTTP per il bot (default da `PORT`) |
 
