@@ -1,6 +1,6 @@
 /**
  * Bot Telegram in polling: LangChain ReAct + tool MCP HTTP locale (Argo).
- * Avvia prima il server MCP: `bun index.ts serve`
+ * Avvia prima il server MCP: `bun index.ts serve` (in locale senza AUTH_TOKEN).
  * Poi: `bun index.ts telegram`
  */
 import { Bot, GrammyError, type Context } from "grammy";
@@ -84,7 +84,6 @@ function wrapUserMessageWithDateTime(text: string, when: Date): string {
 const token = Bun.env.TELEGRAM_BOT_TOKEN;
 const allowedChatIdRaw = Bun.env.TELEGRAM_CHAT_ID;
 const googleApiKey = Bun.env.GOOGLE_API_KEY;
-const authToken = Bun.env.AUTH_TOKEN;
 const port = Bun.env.PORT ?? "3000";
 const mcpUrl = Bun.env.MCP_URL ?? `http://localhost:${port}/mcp`;
 
@@ -98,9 +97,6 @@ if (!allowedChatIdRaw) {
 }
 if (!googleApiKey) {
   throw new Error("Imposta GOOGLE_API_KEY nel file .env");
-}
-if (!authToken) {
-  throw new Error("Imposta AUTH_TOKEN (stesso token del server MCP HTTP)");
 }
 
 const allowedChatId = Number(allowedChatIdRaw);
@@ -116,14 +112,13 @@ log("bootstrap", {
   allowedChatId,
   telegramTokenPresent: Boolean(token && token.length > 0),
   googleApiKeyPresent: Boolean(googleApiKey && googleApiKey.length > 0),
-  authTokenPresent: Boolean(authToken && authToken.length > 0),
 });
 
 const mcpClient = new MultiServerMCPClient({
   argo: {
     transport: "http",
     url: mcpUrl,
-    headers: { Authorization: `Bearer ${authToken}` },
+    headers: {},
   },
 });
 

@@ -1,0 +1,42 @@
+# MCP HTTP + bot Telegram (stessa immagine del Dockerfile).
+# Copia .env da .env.example e compila le variabili; poi: docker compose up --build
+#
+# Il servizio mcp ascolta su 0.0.0.0:3000 nel network compose (MCP_URL del bot).
+# Sull'host la porta è 3000 → http://localhost:3000/mcp (opzionale, per Cursor / debug).
+
+services:
+  mcp:
+    build: .
+    command: ["bun", "index.ts", "serve"]
+    env_file:
+      - .env
+    environment:
+      MCP_HOST: "0.0.0.0"
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3000/mcp',{method:'OPTIONS'}).then(r=>process.exit(r.status===204?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  telegram:
+    build: .
+    command: ["bun", "index.ts", "telegram"]
+    env_file:
+      - .env
+    environment:
+      MCP_URL: http://mcp:3000/mcp
+    depends_on:
+      mcp:
+        condition: service_healthy
+    restart: unless-stopped

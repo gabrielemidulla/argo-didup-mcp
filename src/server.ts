@@ -32,11 +32,11 @@ function unauthorized() {
 }
 
 function authorize(req: Request): boolean {
-  const expected = Bun.env["AUTH_TOKEN"];
-  if (!expected?.trim()) return false;
+  const expected = Bun.env["AUTH_TOKEN"]?.trim();
+  if (!expected) return true;
   const h = req.headers.get("authorization");
   if (!h?.startsWith("Bearer ")) return false;
-  return h.slice(7).trim() === expected.trim();
+  return h.slice(7).trim() === expected;
 }
 
 function corsHeaders(): Record<string, string> {
@@ -132,14 +132,28 @@ async function handleMcp(req: Request): Promise<Response> {
   return new Response("Method Not Allowed", { status: 405 });
 }
 
+function isWideBind(hostname: string): boolean {
+  const h = hostname.trim();
+  return h === "0.0.0.0" || h === "*" || h === "::";
+}
+
 export async function startHttpServer() {
   const port = Number(Bun.env["PORT"] ?? "3000");
-  const token = Bun.env["AUTH_TOKEN"];
-  if (!token?.trim()) {
+  const tokenConfigured = Boolean(Bun.env["AUTH_TOKEN"]?.trim());
+  const explicitHost = Bun.env["MCP_HOST"]?.trim();
+  const hostname =
+    explicitHost ?? (tokenConfigured ? "0.0.0.0" : "127.0.0.1");
+
+  if (!tokenConfigured && isWideBind(hostname)) {
     console.error(
-      "Imposta AUTH_TOKEN nell'ambiente prima di avviare il server HTTP.",
+      "ATTENZIONE: MCP senza AUTH_TOKEN in ascolto su tutte le interfacce; chiunque raggiunga la porta può usarlo. Per uso solo su questo computer lascia MCP_HOST non impostato (default 127.0.0.1).",
     );
-    process.exit(1);
+  } else if (!tokenConfigured) {
+    console.error(
+      "MCP in modalità locale: nessun Bearer richiesto, ascolto solo su " +
+        hostname +
+        " (non raggiungibile da altri PC sulla LAN salvo tunnel/proxy).",
+    );
   }
 
   try {
@@ -160,7 +174,7 @@ export async function startHttpServer() {
 
   Bun.serve({
     port,
-    hostname: "0.0.0.0",
+    hostname,
     idleTimeout: idle,
     async fetch(req) {
       const url = new URL(req.url);
@@ -174,7 +188,9 @@ export async function startHttpServer() {
     },
   });
 
-  console.error(`argo-didup MCP Streamable HTTP su http://0.0.0.0:${port}/mcp`);
+  console.error(
+    `argo-didup MCP Streamable HTTP su http://${hostname}:${port}/mcp`,
+  );
 
   const shutdown = async () => {
     console.error("Shutdown in corso...");
