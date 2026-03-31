@@ -40,7 +40,7 @@ export function wrapAutomationPromptForAgent(
     `[⚙️ Esecuzione AUTOMATIZZATA da promemoria pianificato. ` +
     `Non è un messaggio scritto dall'utente in questo momento: è un'attività pianificata dal calendario del bot.\n` +
     `Momento esecuzione: ${weekdayEn}, ${dateTimeIt} (${USER_MESSAGE_TIMEZONE}). ` +
-    `Rispondi nella stessa chat Telegram dell'utente, con lo stesso stile delle risposte manuali (HTML, emoji, strumenti Argo se servono).\n\n` +
+    `Rispondi nella stessa chat Telegram dell'utente, con lo stesso stile delle risposte manuali: solo HTML Telegram (<b>, <i>, <a>, …), mai Markdown (** o #). Emoji e strumenti Argo se servono.\n\n` +
     `Istruzione salvata nell'automazione:\n${storedPrompt}]`
   );
 }

@@ -29,7 +29,7 @@ export function createAutomationTools(
         .string()
         .min(1)
         .describe(
-          "Istruzione completa per il modello a ogni esecuzione (italiano), incluso cosa recuperare da Argo e come rispondere su Telegram (HTML, tono).",
+          "Istruzione completa per il modello a ogni esecuzione (italiano), incluso cosa recuperare da Argo e come rispondere su Telegram: solo HTML (<b>, <i>, <a>), mai Markdown (** o #).",
         ),
       cron_expression: z
         .string()
