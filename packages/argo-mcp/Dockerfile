@@ -1,5 +1,5 @@
-# Build from repository root: docker build -f packages/argo-mcp/Dockerfile .
-FROM oven/bun:debian
+# docker build -f packages/argo-mcp/Dockerfile .
+FROM oven/bun:1-debian
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -19,7 +19,7 @@ RUN bun install --frozen-lockfile
 
 COPY packages/argo-mcp ./packages/argo-mcp
 
-# Ripeti install dopo la COPY (sorgente senza node_modules per .dockerignore): mantiene packages/argo-mcp/node_modules.
+# Dopo COPY serve un secondo install per allineare node_modules del workspace (context senza node_modules).
 RUN bun install --frozen-lockfile
 
 WORKDIR /app

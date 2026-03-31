@@ -1,5 +1,5 @@
-# Build from repository root: docker build -f packages/telegram-bot/Dockerfile .
-FROM oven/bun:debian
+# docker build -f packages/telegram-bot/Dockerfile .
+FROM oven/bun:1-debian
 
 WORKDIR /app
 COPY package.json bun.lock tsconfig.base.json ./
@@ -9,7 +9,7 @@ RUN bun install --frozen-lockfile
 
 COPY packages/telegram-bot ./packages/telegram-bot
 
-# Bun mette le dipendenze del workspace in packages/telegram-bot/node_modules (non in /app/node_modules).
+# Secondo install: le dipendenze del pacchetto stanno sotto packages/telegram-bot/node_modules.
 RUN bun install --frozen-lockfile
 
 WORKDIR /app
