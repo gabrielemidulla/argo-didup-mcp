@@ -67,6 +67,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-argo_bot}
       MYSQL_USER: ${MYSQL_USER:-argo}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-argo_change_me}
+      # Memoria persistente fuori dall'immagine: rebuild/ricreazione container non cancella MEMORY.md
+      TELEGRAM_MEMORY_PATH: /data/MEMORY.md
+    volumes:
+      - telegram_user_memory:/data
     depends_on:
       - mysql
       - mcp
@@ -74,3 +78,4 @@ services:
 
 volumes:
   mysql_data:
+  telegram_user_memory:

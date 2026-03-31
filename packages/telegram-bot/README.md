@@ -33,3 +33,5 @@ Dal root del monorepo:
 ```bash
 docker build -f packages/telegram-bot/Dockerfile -t telegram-bot .
 ```
+
+Con **Docker Compose** (root repo), la memoria persistente è su volume `telegram_user_memory` come `/data/MEMORY.md` (`TELEGRAM_MEMORY_PATH`); rebuild e `docker compose up` non azzerano il file.

@@ -36,7 +36,7 @@ Se sul server HTTP viene impostato `AUTH_TOKEN`, il client deve inviare `Authori
 
 ## Docker
 
-[docker-compose.yml](docker-compose.yml): servizi `mysql`, `mcp`, `telegram`. Esempi: `docker compose up mysql -d`, `docker compose up mcp telegram -d`.
+[docker-compose.yml](docker-compose.yml): servizi `mysql`, `mcp`, `telegram`. Esempi: `docker compose up mysql -d`, `docker compose up mcp telegram -d`. Il bot usa il volume `telegram_user_memory` per `MEMORY.md` (preferenze utente): non si perde ricompilando l’immagine o ricreando il container.
 
 Build singole immagini dal root del repo:
 
