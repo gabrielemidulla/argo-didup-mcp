@@ -1,26 +1,17 @@
 {
-  "name": "argo-didup-mcp",
-  "module": "index.ts",
-  "type": "module",
+  "name": "argo-didup",
   "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "mcp": "bun run --env-file=.env --cwd packages/argo-mcp mcp",
+    "serve": "bun run --env-file=.env --cwd packages/argo-mcp serve",
+    "telegram": "bun run --env-file=.env --cwd packages/telegram-bot start",
+    "check": "bun run --cwd packages/argo-mcp check && bun run --cwd packages/telegram-bot check"
+  },
   "devDependencies": {
     "@types/bun": "^1.3.11"
   },
   "peerDependencies": {
     "typescript": "^5"
-  },
-  "dependencies": {
-    "@grammyjs/runner": "^2.0.3",
-    "@langchain/core": "^1.1.36",
-    "@langchain/google-genai": "^2.1.26",
-    "@langchain/langgraph": "^1.2.6",
-    "@langchain/mcp-adapters": "^1.1.3",
-    "@modelcontextprotocol/sdk": "^1.28.0",
-    "grammy": "^1.41.1",
-    "langchain": "^1.2.37",
-    "puppeteer": "^24.40.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "zod": "^4.3.6"
   }
 }

@@ -15,6 +15,9 @@ logs
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
+# Memoria persistente locale del bot Telegram (preferenze utente)
+packages/telegram-bot/MEMORY.md
+
 # dotenv environment variable files
 .env
 .env.development.local

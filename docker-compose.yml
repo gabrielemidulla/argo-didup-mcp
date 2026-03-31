@@ -1,13 +1,36 @@
-# MCP HTTP + bot Telegram (stessa immagine del Dockerfile).
-# Copia .env da .env.example e compila le variabili; poi: docker compose up --build
+# mysql, mcp, telegram: avvia solo ciò che ti serve (Docker Desktop o CLI).
+# Esempi: `docker compose up mysql -d` | `docker compose up mcp telegram -d` | `docker compose up -d`
 #
-# Il servizio mcp ascolta su 0.0.0.0:3000 nel network compose (MCP_URL del bot).
-# Sull'host la porta è 3000 → http://localhost:3000/mcp (opzionale, per Cursor / debug).
+# Build contesto: root del monorepo per mcp e telegram.
 
 services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-argo_root_change_me}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-argo_bot}
+      MYSQL_USER: ${MYSQL_USER:-argo}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-argo_change_me}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" || exit 1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 45s
+    restart: unless-stopped
+
   mcp:
-    build: .
-    command: ["bun", "index.ts", "serve"]
+    build:
+      context: .
+      dockerfile: packages/argo-mcp/Dockerfile
     env_file:
       - .env
     environment:
@@ -27,16 +50,27 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+    depends_on:
+      - mysql
     restart: unless-stopped
 
   telegram:
-    build: .
-    command: ["bun", "index.ts", "telegram"]
+    build:
+      context: .
+      dockerfile: packages/telegram-bot/Dockerfile
     env_file:
       - .env
     environment:
       MCP_URL: http://mcp:3000/mcp
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-argo_bot}
+      MYSQL_USER: ${MYSQL_USER:-argo}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-argo_change_me}
     depends_on:
-      mcp:
-        condition: service_healthy
+      - mysql
+      - mcp
     restart: unless-stopped
+
+volumes:
+  mysql_data:

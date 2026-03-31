@@ -1,0 +1,32 @@
+{
+  "name": "telegram-bot",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun --env-file=../../.env src/main.ts",
+    "check": "bunx tsc --noEmit",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@grammyjs/runner": "^2.0.3",
+    "@langchain/core": "^1.1.36",
+    "@langchain/google-genai": "^2.1.26",
+    "@langchain/langgraph": "^1.2.6",
+    "@langchain/mcp-adapters": "^1.1.3",
+    "@t3-oss/env-core": "^0.13.11",
+    "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.2",
+    "grammy": "^1.41.1",
+    "he": "^1.2.0",
+    "html-to-text": "^9.0.5",
+    "langchain": "^1.2.37",
+    "lru-cache": "^11.2.7",
+    "mysql2": "^3.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/he": "^1.2.3",
+    "@types/html-to-text": "^9.0.4",
+    "drizzle-kit": "^0.31.10"
+  }
+}
