@@ -1,4 +1,4 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { HumanMessage } from "@langchain/core/messages";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
@@ -73,7 +73,7 @@ async function downloadArgoPdf(url: string): Promise<
 }
 
 export function createLeggiCircolarePdfTool(
-  visionLlm: ChatGoogleGenerativeAI,
+  visionLlm: BaseChatModel,
 ): DynamicStructuredTool {
   const schema = z.object({
     urls: z
@@ -93,7 +93,7 @@ export function createLeggiCircolarePdfTool(
   return new DynamicStructuredTool({
     name: "leggi_circolare_pdf",
     description:
-      "Legge uno o più PDF di circolare Argo: scarica gli URL firmati dalla bacheca e li analizza insieme con Gemini (un'unica domanda su tutti gli allegati). Usa DOPO bacheca: passa tutti i files[].url rilevanti in `urls` (array). Gli URL scadono in fretta: chiamalo subito dopo bacheca.",
+      "Legge uno o più PDF di circolare Argo: scarica gli URL firmati dalla bacheca e li analizza insieme con il modello AI (un'unica domanda su tutti gli allegati; serve un modello che accetti PDF in chat). Usa DOPO bacheca: passa tutti i files[].url rilevanti in `urls` (array). Gli URL scadono in fretta: chiamalo subito dopo bacheca.",
     schema,
     func: async ({ urls, domanda }) => {
       const tTool = performance.now();
@@ -158,7 +158,7 @@ export function createLeggiCircolarePdfTool(
       const docPhrase =
         n === 1 ? "il PDF allegato" : `i ${n} PDF allegati (documenti 1…${n})`;
 
-      logger.log("tool:leggi_circolare_pdf:gemini-invoke", {
+      logger.log("tool:leggi_circolare_pdf:llm-invoke", {
         pdfCount: n,
         totalBytes,
       });
@@ -173,13 +173,13 @@ export function createLeggiCircolarePdfTool(
       });
       const tLlm = performance.now();
       const out = await visionLlm.invoke([msg]);
-      logger.log("tool:leggi_circolare_pdf:gemini-done", {
+      logger.log("tool:leggi_circolare_pdf:llm-done", {
         llmMs: Math.round(performance.now() - tLlm),
       });
       const text = aiContentToString(out.content).trim();
       if (!text) {
         logger.warn("tool:leggi_circolare_pdf:empty-llm-output");
-        return JSON.stringify({ error: "Gemini non ha restituito testo." });
+        return JSON.stringify({ error: "Il modello non ha restituito testo." });
       }
       const finalOut =
         text.length > 24_000 ? `${text.slice(0, 24_000)}\n…(troncato)` : text;

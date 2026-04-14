@@ -20,7 +20,7 @@ export const TOOL_PROGRESS_HTML: Record<string, string> = {
   "dati-anagrafici": "Sto caricando i <b>dati anagrafici</b>…",
   "voti-scrutini": "Sto caricando i <b>voti di scrutinio</b>…",
   leggi_circolare_pdf:
-    "Scarico i <b>PDF</b> delle circolari e li analizzo con Gemini…",
+    "Scarico i <b>PDF</b> delle circolari e li analizzo con il modello…",
   automation_create: "Salvo l'<b>automazione</b> nel database…",
   automation_list: "Leggo l'elenco delle <b>automazioni</b>…",
   automation_update: "Aggiorno l'<b>automazione</b>…",

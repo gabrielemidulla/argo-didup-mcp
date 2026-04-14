@@ -1,5 +1,5 @@
 import type { Bot } from "grammy";
-import type { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { HumanMessage, type BaseMessage } from "@langchain/core/messages";
 import { wrapAutomationPromptForAgent } from "../agent/message-context.ts";
 import {
@@ -16,7 +16,7 @@ import type { AutomationRow } from "./repository.ts";
 export function createRunScheduledAutomation(deps: {
   bot: Bot;
   allowedChatId: number;
-  automationTitleLlm: ChatGoogleGenerativeAI;
+  automationTitleLlm: BaseChatModel;
   invokeAgentWithUserMemory: (
     messages: BaseMessage[],
   ) => Promise<{ messages: unknown[] }>;

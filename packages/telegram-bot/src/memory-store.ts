@@ -8,7 +8,7 @@ export const USER_MEMORY_SYSTEM_TAG =
 
 /**
  * Delimitatori per iniettare la memoria nell’ultimo HumanMessage: così non si aggiunge una seconda
- * SystemMessage (LangGraph prepone già il prompt di sistema; Gemini accetta una sola in cima).
+ * SystemMessage (LangGraph prepone già il prompt di sistema; va evitata una seconda SystemMessage in coda).
  */
 export const USER_MEMORY_MESSAGE_START = "<<<TELEGRAM_USER_MEMORY>>>";
 export const USER_MEMORY_MESSAGE_END = "<<<END_TELEGRAM_USER_MEMORY>>>";
@@ -31,7 +31,7 @@ function buildSystemMessage(memoryMarkdown: string): string {
   return `${USER_MEMORY_SYSTEM_TAG} Applica sempre quanto segue, salvo che l'utente chieda esplicitamente il contrario in questo turno.\n\n${body}`;
 }
 
-/** Blocco da prefissare al messaggio utente dell’ultimo turno (non usare come SystemMessage con Gemini). */
+/** Blocco da prefissare al messaggio utente dell’ultimo turno (non usare come seconda SystemMessage). */
 function buildInjectionBlock(memoryMarkdown: string): string {
   const inner = buildSystemMessage(memoryMarkdown);
   return `${USER_MEMORY_MESSAGE_START}\n${inner}\n${USER_MEMORY_MESSAGE_END}\n\n`;

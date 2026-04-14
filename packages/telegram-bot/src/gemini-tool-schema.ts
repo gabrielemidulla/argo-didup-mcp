@@ -3,7 +3,7 @@ import { toJsonSchema } from "@langchain/core/utils/json_schema";
 import { isInteropZodSchema } from "@langchain/core/utils/types";
 
 /**
- * L'API Gemini (function declarations) non accetta alcune parole chiave JSON Schema,
+ * Alcuni endpoint OpenAI-compatibili (OpenRouter / vari provider) rifiutano alcune parole chiave JSON Schema,
  * ad es. `exclusiveMinimum` / `exclusiveMaximum` usate da Zod 4 per `.positive()` / `.gt()`.
  */
 function stripUnsupportedKeywords(value: unknown): unknown {
@@ -20,7 +20,7 @@ function stripUnsupportedKeywords(value: unknown): unknown {
 }
 
 /**
- * Schema pronto per Gemini: Zod → JSON Schema, clone profondo (niente getter),
+ * Schema pronto per tool calling: Zod → JSON Schema, clone profondo (niente getter),
  * strip di keyword non supportate. Usare anche sullo schema dopo il wrap dei tool.
  */
 function finalizeSchema(schema: unknown): Record<string, unknown> {
@@ -32,7 +32,7 @@ function finalizeSchema(schema: unknown): Record<string, unknown> {
   return stripUnsupportedKeywords(cloned) as Record<string, unknown>;
 }
 
-/** Converte Zod → JSON Schema o clona lo schema MCP, poi rimuove i campi non supportati da Gemini. */
+/** Converte Zod → JSON Schema o clona lo schema MCP, poi rimuove i campi non supportati dal provider. */
 function sanitizeTool(tool: DynamicStructuredTool): DynamicStructuredTool {
   const schema = finalizeSchema(tool.schema);
   return new DynamicStructuredTool({

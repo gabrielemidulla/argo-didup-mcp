@@ -16,7 +16,8 @@ export const serverEnv = createEnv({
         }
         return n;
       }),
-    GOOGLE_API_KEY: z.string().min(1),
+    OPENROUTER_API_KEY: z.string().min(1),
+    AI_MODEL_NAME: z.string().min(1),
     PORT: z.string().optional().default("3000"),
     MCP_URL: z.string().min(1).optional(),
     MYSQL_HOST: z.string().optional(),
@@ -33,7 +34,8 @@ export const serverEnv = createEnv({
 export type BotEnv = {
   telegramToken: string;
   allowedChatId: number;
-  googleApiKey: string;
+  openrouterApiKey: string;
+  aiModelName: string;
   port: string;
   mcpUrl: string;
 };
@@ -43,7 +45,8 @@ export function loadBotEnv(): BotEnv {
   return {
     telegramToken: serverEnv.TELEGRAM_BOT_TOKEN,
     allowedChatId: serverEnv.TELEGRAM_CHAT_ID,
-    googleApiKey: serverEnv.GOOGLE_API_KEY,
+    openrouterApiKey: serverEnv.OPENROUTER_API_KEY,
+    aiModelName: serverEnv.AI_MODEL_NAME,
     port,
     mcpUrl: serverEnv.MCP_URL ?? `http://localhost:${port}/mcp`,
   };

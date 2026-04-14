@@ -1,4 +1,4 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { aiContentToString } from "../agent/ai-content.ts";
 import logger from "../logging.ts";
@@ -32,7 +32,7 @@ function normalizeAutomationDisplayTitle(
 }
 
 export async function synthesizeAutomationDisplayTitle(
-  automationTitleLlm: ChatGoogleGenerativeAI,
+  automationTitleLlm: BaseChatModel,
   storedPrompt: string,
   fallback: string,
 ): Promise<string> {

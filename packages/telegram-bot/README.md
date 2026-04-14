@@ -1,6 +1,6 @@
 # telegram-bot
 
-Bot Telegram: LangChain ReAct + Gemini; chiama l’MCP Argo su HTTP (`MCP_URL`).
+Bot Telegram: LangChain ReAct + [OpenRouter](https://openrouter.ai); chiama l’MCP Argo su HTTP (`MCP_URL`).
 
 ## Avvio
 
@@ -18,7 +18,7 @@ bun run start
 
 ## Variabili
 
-Obbligatorie: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY`.
+Obbligatorie: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `OPENROUTER_API_KEY`, `AI_MODEL_NAME` (slug modello OpenRouter, vedi [documentazione LangChain](https://openrouter.ai/docs/guides/community/langchain)).
 
 Opzionali: `MCP_URL` (default `http://localhost:<PORT>/mcp` con `PORT` da env), `TELEGRAM_MEMORY_PATH` (default `MEMORY.md` in questo package, gitignored).
 

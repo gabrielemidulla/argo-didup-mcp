@@ -1,12 +1,12 @@
 /**
- * Telegram bot (polling): LangChain ReAct + MCP HTTP (Argo).
+ * Telegram bot (polling): LangChain ReAct + OpenRouter + MCP HTTP (Argo).
  * Start MCP first: `bun run --cwd packages/argo-mcp serve` (local: no AUTH_TOKEN).
  * Then: `bun run telegram` or `bun run --cwd packages/telegram-bot start`.
  */
 import { Bot } from "grammy";
 import { run } from "@grammyjs/runner";
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOpenRouter } from "@langchain/openrouter";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
@@ -40,15 +40,29 @@ import {
 } from "./tools/langchain-wrap.ts";
 
 const env = loadBotEnv();
-const { telegramToken: token, allowedChatId, googleApiKey, mcpUrl, port } =
-  env;
+const {
+  telegramToken: token,
+  allowedChatId,
+  openrouterApiKey,
+  aiModelName,
+  mcpUrl,
+  port,
+} = env;
+
+const openRouterAttribution = {
+  siteUrl: "https://github.com/gabrielemidulla/argo-didup-mcp",
+  siteName: "argo-didup-mcp",
+} as const;
 
 logger.log("bootstrap", {
   mcpUrl,
   port,
   allowedChatId,
+  aiModelName,
   telegramTokenPresent: Boolean(token && token.length > 0),
-  googleApiKeyPresent: Boolean(googleApiKey && googleApiKey.length > 0),
+  openrouterApiKeyPresent: Boolean(
+    openrouterApiKey && openrouterApiKey.length > 0,
+  ),
 });
 
 const mysqlCfg = mysqlConfigFromEnv();
@@ -94,17 +108,16 @@ const mcpClient = new MultiServerMCPClient({
   },
 });
 
-const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-3-flash-preview",
-  apiKey: googleApiKey,
+const llm = new ChatOpenRouter(aiModelName, {
+  apiKey: openrouterApiKey,
+  ...openRouterAttribution,
 });
 
-// Short labels only; higher maxOutputTokens avoids truncated titles when the model uses internal reasoning tokens.
-const automationTitleLlm = new ChatGoogleGenerativeAI({
-  model: "gemini-3-flash-preview",
-  apiKey: googleApiKey,
-  maxOutputTokens: 512,
+const automationTitleLlm = new ChatOpenRouter(aiModelName, {
+  apiKey: openrouterApiKey,
+  maxTokens: 512,
   temperature: 0.25,
+  ...openRouterAttribution,
 });
 
 const leggiCircolarePdfTool = createLeggiCircolarePdfTool(llm);
@@ -141,7 +154,7 @@ const agent = createReactAgent({
   prompt: buildReactAgentSystemPrompt(automationInstructions),
 });
 
-logger.log("agent:createReactAgent:ok", { model: "gemini-3-flash-preview" });
+logger.log("agent:createReactAgent:ok", { model: aiModelName });
 
 const invokeAgentWithUserMemory = createInvokeAgentWithUserMemory(agent);
 

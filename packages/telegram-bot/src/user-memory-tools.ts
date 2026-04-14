@@ -42,7 +42,7 @@ function stripMemoryInjectionFromPlainText(content: string): string {
 
 /**
  * Inietta MEMORY.md nell’ultimo messaggio umano del turno (LangGraph aggiunge già una SystemMessage
- * col prompt; Gemini non ammette una seconda SystemMessage in coda al thread).
+ * col prompt; il provider non deve ricevere una seconda SystemMessage in coda al thread).
  */
 function injectIntoLatestHuman(
   messages: BaseMessage[],
